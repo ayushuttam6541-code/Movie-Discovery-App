@@ -1,4 +1,4 @@
-# 🎬 Movie Discovery App — Full-Stack Production System
+# 🎬 Movie Discovery App 
 
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/)
@@ -96,7 +96,7 @@ Only **one** `.env` file is needed for the backend (`server/.env`):
 | :--- | :--- | :--- |
 | `TMDB_API_KEY` | TMDB API v3 Key ([Get here](https://www.themoviedb.org/settings/api)) | `your_tmdb_key` |
 | `TMDB_BASE_URL`| Base URL for TMDB API | `https://api.tmdb.org/3` |
-| `MONGODB_URI`  | MongoDB connection string (local or Atlas) | `mongodb://127.0.0.1:27017/movie-discovery` |
+| `MONGODB_URI`  | MongoDB connection string (local or Atlas)
 | `PORT`         | Server port | `5000` |
 
 ---
