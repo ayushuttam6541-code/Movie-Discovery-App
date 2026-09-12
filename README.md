@@ -12,40 +12,39 @@ A production-grade, full-stack movie discovery web application built with **Reac
 
 ---
 
-## 👔 Executive Summary (For Recruiters & Technical HR)
+## 👔 Executive Summary (For Recruiters & Evaluators)
 
 > **Quick 30-Second Pitch**:  
-> This project is a complete full-stack web application designed to demonstrate clean architecture, production-style security, and resilient UI design. Instead of making raw, insecure API calls from the browser, it implements a **Node.js backend gateway** that shields external API keys, normalizes responses, and manages a **persistent MongoDB wishlist** with session continuity without forcing the user through a login wall.
+> This application is a complete, resilient full-stack movie discovery platform. Rather than building a simple API wrapper or insecure client-side app, it features a **Node.js API Gateway** that secures third-party credentials, normalizes TMDB data, prevents search race conditions with request cancellation, and delivers a **persistent MongoDB-backed wishlist** without requiring users to navigate a login wall.
 
-### 🌟 Why This Project Stands Out (Evaluation Checklist)
+### 🌟 Evaluation Checklist & Architectural Highlights
 
 | Evaluation Criteria | Implementation in this Project | Engineering Benefit |
 | :--- | :--- | :--- |
-| **API Security & Privacy** | Backend proxy layer (`/api/movies`) hides TMDB credentials | TMDB API keys are **never** bundled or exposed to the client browser. |
-| **User Experience (UX)** | Persistent Wishlist via anonymous client UUID (`x-client-id`) | Zero friction: users don't need to register an account to save movies across refreshes. |
-| **Async Resilience** | `AbortController` cancellation + debounced queries | Eliminates search race conditions and cancels stale network requests. |
-| **Monorepo Architecture** | Unified root build orchestrating frontend and backend | Solves deployment mismatches; deploys cleanly on Render as a single unified service. |
-| **Defensive Engineering** | Graceful degradation for MongoDB & TMDB outages | App continues to discover movies even if MongoDB is temporarily down. |
-| **Modern Styling** | Tailwind CSS v4 with custom dark mode & skeleton loaders | Responsive, polished visual presentation without external bloated component kits. |
+| **API Security & Privacy** | Backend proxy layer (`/api/movies`) isolates TMDB key | TMDB API keys are **never** bundled or leaked to the client browser. |
+| **User Experience (UX)** | Persistent Wishlist via anonymous client UUID (`x-client-id`) | Zero friction: users don't need to register an account to save movies across sessions. |
+| **Async Resilience** | `AbortController` cancellation + debounced search | Eliminates search race conditions and cancels stale network requests. |
+| **Monorepo Architecture** | Unified root build orchestrating frontend and backend | Deploys seamlessly on Render as a single unified service without CORS issues. |
+| **Defensive Engineering** | Graceful degradation for MongoDB & TMDB outages | App continues to discover movies even if MongoDB is temporarily offline. |
+| **Modern Styling** | Tailwind CSS v4 with custom dark mode & skeleton loaders | Responsive, polished visual presentation without heavy third-party UI kits. |
 
 ---
 
 ## 📑 Table of Contents
 
-1. [Executive Summary (For Recruiters)](#-executive-summary-for-recruiters--technical-hr)
+1. [Executive Summary (For Recruiters)](#-executive-summary-for-recruiters--evaluators)
 2. [Quick Start Guide (Run in 2 Minutes)](#-quick-start-guide-run-in-2-minutes)
 3. [Environment Configuration](#-environment-configuration)
-4. [Deployment Guide & Render Troubleshooting](#-deployment-guide--render-troubleshooting)
-   - [Why `npm error Missing script: "build"` Happened](#why-npm-error-missing-script-build-happened)
-   - [How It Was Fixed](#how-it-was-fixed)
-   - [Step-by-Step Render Deployment](#step-by-step-render-deployment)
+4. [Approach Taken](#-approach-taken)
 5. [System Architecture](#-system-architecture)
-6. [Design & Technical Decisions](#-design--technical-decisions)
-7. [Assumptions](#-assumptions)
-8. [Limitations](#-limitations)
-9. [AI Usage Honest Documentation](#-ai-usage-honest-documentation)
-10. [REST API Reference](#-rest-api-reference)
-11. [Author & Contact](#-author--contact)
+6. [Important Technical Decisions](#-important-technical-decisions)
+7. [Deployment Guide & Render Troubleshooting](#-deployment-guide--render-troubleshooting)
+8. [Assumptions Made](#-assumptions-made)
+9. [Known Limitations](#-known-limitations)
+10. [What I Would Improve With Additional Time](#-what-i-would-improve-with-additional-time)
+11. [AI Usage Honest Documentation](#-ai-usage-honest-documentation)
+12. [REST API Reference](#-rest-api-reference)
+13. [Author & Contact](#-author--contact)
 
 ---
 
@@ -61,7 +60,6 @@ npm run install:all
 
 ### 2. Configure Environment Variables
 Copy the example file to `server/.env`:
-
 ```bash
 cp server/.env.example server/.env
 ```
@@ -103,70 +101,35 @@ Only **one** `.env` file is needed for the backend (`server/.env`):
 
 ---
 
-## 🚀 Deployment Guide & Render Troubleshooting
+## 🧭 Approach Taken
 
-### Understanding the 3 `package.json` Files
+The project was approached through an end-to-end software engineering lifecycle designed to mirror production standards:
 
-The project is structured as a workspace monorepo:
-1. **Root `package.json`**: Orchestrates global commands (`build`, `start`, `dev`) for cloud hosting.
-2. **`server/package.json`**: Manages backend server dependencies (`express`, `mongoose`, `axios`, `cors`).
-3. **`client/package.json`**: Manages frontend Vite & React dependencies (`react`, `vite`, `tailwindcss`).
+1. **User Experience First**:
+   - Designed the browsing experience so users immediately see trending movies upon loading without needing to search.
+   - Built a comprehensive discovery feed with category pills (*Popular, Top Rated, Now Playing, Upcoming*) and sorting options (*Popularity, Rating, Release Date*).
+   - Created rich detail views (`/movie/:id`) showing genres, runtime, budget, revenue, and artwork.
 
-### Why `npm error Missing script: "build"` Happened
+2. **Backend Gateway & Data Abstraction**:
+   - Shielded third-party API credentials entirely on the backend (`process.env.TMDB_API_KEY`).
+   - Implemented a data normalizer (`movieService.js`) to transform raw TMDB responses into a uniform schema (resolving full CDN image URLs and providing fallbacks for missing overviews/posters).
 
-When deploying this repository to **Render**:
-1. Render automatically inspects the **root directory**.
-2. By default, Render executes `npm run build`.
-3. Because root `package.json` previously only had `"build:client"` (and no `"build"` script), Render threw:
-   ```text
-   npm error Missing script: "build"
-   ==> Build failed 😞
-   ```
+3. **Persistent Data Modeling**:
+   - Stored only essential movie metadata in MongoDB (`movieId, title, posterPath, releaseDate, rating`) to keep database overhead minimal while fetching rich runtime data on-demand.
+   - Designed an anonymous multi-tenant architecture using persistent UUIDs passed in the `x-client-id` header.
 
-### How It Was Fixed
+4. **Async Resiliency & Edge-Case Handling**:
+   - Solved search race conditions by aborting in-flight HTTP requests using `AbortController` and tracking monotonic request IDs (`currentRequestIdRef`).
+   - Configured 10-second server request timeouts against TMDB to prevent hanging connections.
+   - Implemented graceful degradation: if MongoDB is disconnected, the server logs a clear warning and continues serving movie discovery endpoints.
 
-1. **Root `package.json`** now has a unified `build` and `start` pipeline:
-   ```json
-   "scripts": {
-     "build": "npm install --prefix client && npm run build --prefix client && npm install --prefix server",
-     "start": "node server/server.js"
-   }
-   ```
-2. **`server/package.json`** now contains a fallback `"build": "echo \"Server ready\""` so it never errors even if deployed standalone.
-3. **`server/server.js`** serves static production assets from `client/dist` and handles client-side SPA routing (`index.html` fallback).
-4. **`client/src/services/api.js`** dynamically switches between `/api` (production) and `VITE_API_URL` / `localhost:5000` (development).
+5. **Responsive & Defensive UI**:
+   - Handled loading states using animated shimmer skeletons (`LoadingSkeleton.jsx`).
+   - Provided friendly error screens with "Try Again" retry actions.
+   - Handled edge cases: missing poster placeholders, multi-line title clamping, and empty search results.
 
----
-
-### Step-by-Step Render Deployment
-
-#### Option A: Unified Single Web Service (Recommended — Free Tier Friendly)
-Hosts frontend and backend together on 1 free Render service, avoiding CORS:
-1. Log in to [Render](https://render.com) and click **New +** > **Web Service**.
-2. Select your repository: `movie-discovery-app`.
-3. Configure the build parameters:
-   - **Name**: `movie-discovery-app`
-   - **Environment / Runtime**: `Node`
-   - **Root Directory**: *(Leave empty/blank — it will use repository root)*
-   - **Build Command**: `npm run build`
-   - **Start Command**: `npm start`
-4. Add **Environment Variables** in Render:
-   - `TMDB_API_KEY` = `your_tmdb_api_key`
-   - `TMDB_BASE_URL` = `https://api.tmdb.org/3`
-   - `MONGODB_URI` = `mongodb+srv://<user>:<password>@cluster.mongodb.net/movie-discovery`
-   - `NODE_ENV` = `production`
-5. Click **Deploy Web Service**.
-
-#### Option B: Split Services (Frontend Static Site + Backend Web Service)
-- **Backend (Render Web Service)**:
-  - Root Directory: `server`
-  - Build Command: `npm install`
-  - Start Command: `npm start`
-- **Frontend (Render Static Site)**:
-  - Root Directory: `client`
-  - Build Command: `npm run build`
-  - Publish Directory: `dist`
-  - Environment Variable: `VITE_API_URL=https://<your-backend>.onrender.com/api`
+6. **Unified Monorepo Deployment**:
+   - Configured the root `package.json` to orchestrate building the Vite frontend and launching the Node.js server, allowing 1-click cloud deployment on platforms like Render.
 
 ---
 
@@ -201,50 +164,117 @@ Hosts frontend and backend together on 1 free Render service, avoiding CORS:
        └──────────────────────────────┘ └──────────────────────────────┘
 ```
 
-### Architectural Highlights
-
-1. **Backend as a Security Gateway**:
-   The frontend never makes calls to `api.themoviedb.org`. This ensures TMDB API credentials cannot be extracted from browser network tabs or decompiled JavaScript bundles.
-2. **Payload Normalization & Sanitization**:
-   The backend transforms TMDB's verbose JSON structure into a clean, predictable schema:
-   - Converts raw image filenames (`/abc.jpg`) into full CDN URLs (`https://image.tmdb.org/t/p/w500/...`).
-   - Normalizes missing ratings, dates, and overviews with safe defaults.
-3. **Session-Persistent Anonymous Wishlist**:
-   Instead of requiring a signup or relying solely on fragile `localStorage`:
-   - `client/src/services/api.js` creates an anonymous UUID (`movie_discovery_client_id`).
-   - All wishlist requests attach this ID via the `x-client-id` header.
-   - MongoDB indexes wishlists by `{ clientId, movieId }`, providing isolated, cross-tab, refresh-safe wishlists for every visitor.
-
 ---
 
-## 🎯 Design & Technical Decisions
+## 🎯 Important Technical Decisions
 
 | Choice | Alternatives Considered | Rationale |
 | :--- | :--- | :--- |
-| **React 19 + Vite** | Next.js / Create React App | Vite offers sub-second HMR and lightweight bundle sizes. React 19 gives modern concurrent rendering without Next.js server complexity. |
-| **Tailwind CSS v4** | CSS Modules / Styled Components | Zero-runtime CSS performance, lightning-fast utility styling, and clean responsive breakpoint design. |
-| **Node.js + Express** | Direct frontend TMDB calls | Critical for API key security, centralized rate-limiting, and single-port production serving. |
-| **MongoDB + Mongoose** | PostgreSQL / Browser LocalStorage | Flexible JSON document model matches movie objects without migration boilerplate. LocalStorage alone is device-bound and easily lost. |
+| **React 19 + Vite** | Next.js / CRA | Vite provides instant HMR and tiny production bundles. React 19 gives concurrent rendering without SSR operational overhead. |
+| **Tailwind CSS v4** | CSS Modules / Component Kits | High-performance CSS-first syntax, rapid prototyping, and fine-grained responsive breakpoint control without UI kit bloat. |
+| **Node.js + Express** | Calling TMDB from React | Critical for API key security, centralized rate-limiting, and single-port production serving. |
+| **MongoDB + Mongoose** | PostgreSQL / Browser LocalStorage | Flexible document model fits movie items naturally. LocalStorage alone is device-bound and lost if browser cache is cleared. |
 | **Axios with Interceptors** | Native Fetch API | Simplifies automatic header injection (`x-client-id`), response error handling, and `AbortController` cancellation. |
 | **Unified Full-Stack Deployment**| Separate S3 + EC2 / Vercel + Heroku | Simplest operations for evaluators: 1 command builds both, 1 server serves both, 0 CORS configuration issues. |
 
 ---
 
-## 📌 Assumptions
+## 🚀 Deployment Guide & Render Troubleshooting
 
-1. **Guest First UX**: Assumed that users want to browse and build a wishlist immediately without a mandatory signup form.
-2. **Single-Device Anonymous Continuity**: The client UUID is stored in `localStorage`, meaning wishlist items persist on that browser across refreshes.
+### Understanding the 3 `package.json` Files
+
+The project is structured as a workspace monorepo:
+1. **Root `package.json`**: Orchestrates global commands (`build`, `start`, `dev`) for cloud hosting.
+2. **`server/package.json`**: Manages backend server dependencies (`express`, `mongoose`, `axios`, `cors`).
+3. **`client/package.json`**: Manages frontend Vite & React dependencies (`react`, `vite`, `tailwindcss`).
+
+### Why `npm error Missing script: "build"` Happened
+
+When deploying this repository to **Render**:
+1. Render automatically inspects the **root directory**.
+2. By default, Render executes `npm run build`.
+3. Because root `package.json` previously only had `"build:client"` (and no `"build"` script), Render threw:
+   ```text
+   npm error Missing script: "build"
+   ==> Build failed 😞
+   ```
+
+### How It Was Fixed
+
+1. **Root `package.json`** now has a unified `build` and `start` pipeline:
+   ```json
+   "scripts": {
+     "build": "npm install --prefix client && npm run build --prefix client && npm install --prefix server",
+     "start": "node server/server.js"
+   }
+   ```
+2. **`server/package.json`** contains a fallback `"build": "echo \"Server ready\""` so it never errors even if deployed standalone.
+3. **`server/server.js`** serves static production assets from `client/dist` and handles client-side SPA routing (`index.html` fallback).
+4. **`client/src/services/api.js`** dynamically switches between `/api` (production) and `http://localhost:5000/api` (development).
+
+---
+
+### Step-by-Step Render Deployment (Recommended)
+
+1. Log in to [Render](https://render.com) and click **New +** > **Web Service**.
+2. Select your repository: `movie-discovery-app`.
+3. Configure the build parameters:
+   - **Name**: `movie-discovery-app`
+   - **Environment / Runtime**: `Node`
+   - **Root Directory**: *(Leave empty/blank — it will use repository root)*
+   - **Build Command**: `npm run build`
+   - **Start Command**: `npm start`
+4. Add **Environment Variables** in Render:
+   - `TMDB_API_KEY` = `your_tmdb_api_key`
+   - `TMDB_BASE_URL` = `https://api.tmdb.org/3`
+   - `MONGODB_URI` = `mongodb+srv://<user>:<password>@cluster.mongodb.net/movie-discovery`
+   - `NODE_ENV` = `production`
+5. Click **Deploy Web Service**.
+
+---
+
+## 📌 Assumptions Made
+
+1. **Guest-First UX**: Assumed that users want to browse movies and build a wishlist immediately without a mandatory signup form.
+2. **Single-Device Anonymous Continuity**: The client UUID is stored in `localStorage`, meaning wishlist items persist on that browser across tab closures and refreshes.
 3. **External TMDB Availability**: Assumed TMDB v3 endpoints remain online; implemented 10-second server request timeouts to avoid hung connections.
 4. **Resilient Local Database**: Assumed that during evaluation, a local MongoDB instance might not be running; the backend catches connection errors and allows movie browsing to continue uninterrupted.
 
 ---
 
-## ⚠️ Limitations
+## ⚠️ Known Limitations
 
-1. **No Cross-Device Sync**: Because anonymous client IDs are stored in browser `localStorage`, wishlists do not sync across different devices or incognito sessions.
-2. **No User Authentication**: Password/JWT authentication was omitted to prioritize clean API design and rapid evaluation.
+1. **No Cross-Device Sync**: Because anonymous client IDs are stored in browser `localStorage`, wishlists do not sync across different physical devices or incognito sessions.
+2. **No User Authentication**: Password/JWT authentication was intentionally omitted to prioritize clean API design and rapid evaluation.
 3. **TMDB Rate Limiting**: Free-tier TMDB API keys are subject to rate limits (~40 requests/10 seconds). Rapid spamming may return 429 status codes.
 4. **Cloud Container Cold Starts**: On free-tier cloud platforms (like Render), inactive containers spin down after 15 minutes of inactivity; the initial request may take ~30–45 seconds to wake up.
+
+---
+
+## 🔮 What I Would Improve With Additional Time
+
+With additional development time, the following enhancements would be prioritized:
+
+1. **Server-Side Caching (Redis / In-Memory TTL Cache)**:
+   - Cache popular movie queries and search results on the backend with a 10-minute Time-To-Live (TTL).
+   - This would reduce redundant requests to TMDB by up to 80% and drop response latency to under 15ms.
+
+2. **User Authentication & Cross-Device Sync**:
+   - Implement JWT / OAuth2 authentication (Google/GitHub login) to allow users to access their wishlist seamlessly across mobile and desktop.
+
+3. **Advanced Filtering Matrix**:
+   - Multi-genre combination filtering, release year range sliders, and minimum rating thresholds utilizing TMDB's advanced `/discover/movie` parameters.
+
+4. **Embedded Trailers & Streaming Availability**:
+   - Integrate TMDB's `/movie/:id/videos` and `/movie/:id/watch/providers` endpoints to show YouTube trailers and streaming services (Netflix, Prime, Disney+).
+
+5. **Automated Test Suite**:
+   - Unit tests for backend controllers and normalizer functions using **Jest** and **Supertest**.
+   - Component and integration tests for frontend using **React Testing Library**.
+   - End-to-end user journey tests using **Playwright**.
+
+6. **Virtualization for Massive Lists**:
+   - Implement **TanStack Virtual** (virtualized scrolling) to keep DOM node counts minimal when browsing hundreds of movie titles.
 
 ---
 
@@ -255,8 +285,8 @@ In compliance with academic and professional integrity standards, AI tools (Goog
 ### Where AI Was Used:
 - **Deployment Diagnosis**: Investigated and diagnosed the Render build error (`npm error Missing script: "build"`), discovering the root cause in the monorepo's `package.json` layout.
 - **Monorepo Build Scripting**: Formulated the unified root `build` script (`npm install --prefix client && npm run build --prefix client && npm install --prefix server`) and Express static serving setup.
-- **Client Configuration**: Set up Vite environment variable (`VITE_API_URL`) fallbacks and dynamic base URL detection.
-- **Documentation Structuring**: Refined the README structure to be easily digestible for technical HR recruiters and code reviewers.
+- **Client Configuration**: Set up dynamic base URL detection between development and production.
+- **Documentation Structuring**: Refined the README structure to strictly map to the assignment evaluation rubric.
 
 ### What Was Handled & Verified Manually:
 - API endpoint design and TMDB data normalization logic.
@@ -290,65 +320,6 @@ In compliance with academic and professional integrity standards, AI tools (Goog
 
 Developed as a full-stack internship demonstration project showcasing modern React, Node.js, and API architecture best practices.
 
-<<<<<<< HEAD
-Wishlist data is stored in MongoDB rather than only in browser local storage.
-
-This means wishlist data can remain available after closing and reopening the application.
-
-Authentication is intentionally not included because it is not required by the assignment.
-
-## Assumptions
-
-* Users do not need to create an account.
-* TMDB is used as the external movie data provider.
-* MongoDB is used only for persistent wishlist data.
-* TMDB API availability and rate limits are external dependencies.
-* Movie information displayed in the application comes from TMDB.
-
-## Limitations
-
-* The application depends on the availability of the TMDB API.
-* TMDB API rate limits may affect requests.
-* No user authentication is implemented.
-* The wishlist is designed for the assignment's anonymous-user use case.
-
-## AI Usage
-
-AI tools were used during development for:
-
-* Understanding implementation approaches
-* Debugging development issues
-* Reviewing code structure
-* Generating and refining UI ideas
-* Improving error handling and edge-case coverage
-* Assisting with documentation
-
-All generated code was reviewed, tested, and adapted to the requirements of the application.
-
-## Future Improvements
-
-Possible future improvements include:
-
-* User authentication and individual wishlists
-* Advanced genre and rating filters
-* Infinite scrolling
-* Movie recommendations
-* Caching frequently requested movie data
-* Improved API rate-limit handling
-* Automated testing
-* Production deployment with CI/CD
-* More detailed movie recommendations based on user preferences
-
-## License
-
-This project was created as a full-stack internship assignment and is intended for educational and demonstration purposes.
-
-Movie data and images are provided by TMDB.
-
-## Author
-Ayush Raj
-=======
 - **Developer**: Ayush Raj
 - **Project**: Movie Discovery & Persistent Wishlist System
 - **License**: [ISC](https://opensource.org/licenses/ISC)
->>>>>>> a9af2a5 (vite)
