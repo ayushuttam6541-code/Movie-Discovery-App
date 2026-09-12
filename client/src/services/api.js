@@ -16,8 +16,16 @@ const getOrCreateClientId = () => {
   }
 };
 
+// Dynamic Base URL:
+// 1. If VITE_API_URL is set (e.g. standalone frontend deployment on Vercel/Netlify), use it
+// 2. In production (unified deployment where Express serves React), use relative "/api"
+// 3. In development, fallback to "http://localhost:5000/api"
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? "/api" : "http://localhost:5000/api");
+
 const API = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: API_BASE_URL,
   timeout: 10000,
 });
 
