@@ -51,10 +51,10 @@ function Navbar() {
           </div>
           <div className="flex flex-col">
             <span className="text-lg font-bold tracking-tight text-white transition-colors group-hover:text-amber-400">
-              Movie Discovery App
+              CineScope
             </span>
             <span className="-mt-1 text-[10px] font-medium uppercase tracking-widest text-slate-400">
-              Discovery
+              Movie Discovery
             </span>
           </div>
         </Link>
