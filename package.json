@@ -1,0 +1,21 @@
+{
+  "name": "movie-discovery-app",
+  "version": "1.0.0",
+  "description": "Production-style Movie Discovery App with React, Node.js, TMDB abstraction, and persistent MongoDB Wishlist",
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "start:server": "node server/server.js",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "build:client": "npm run build --prefix client"
+  },
+  "keywords": [
+    "react",
+    "express",
+    "tmdb",
+    "mongodb",
+    "movie-discovery"
+  ],
+  "author": "",
+  "license": "ISC"
+}
