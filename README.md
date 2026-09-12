@@ -12,6 +12,8 @@ A production-grade, full-stack movie discovery web application built with **Reac
 
 ---
 
+## Live Url: https://movie-discovery-app-kohl.vercel.app
+
 ## 👔 Executive Summary (For Recruiters & Evaluators)
 
 > **Quick 30-Second Pitch**:  
