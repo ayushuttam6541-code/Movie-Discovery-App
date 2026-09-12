@@ -351,3 +351,6 @@ Possible future improvements include:
 This project was created as a full-stack internship assignment and is intended for educational and demonstration purposes.
 
 Movie data and images are provided by TMDB.
+
+## Author
+Ayush Raj
